@@ -1,0 +1,114 @@
+Params
+Numeric LeftBars(2);
+Numeric RightBars(2);
+Numeric MinGap(2);
+Numeric MinSwingPct(1);
+
+Vars
+Numeric PHPrice;
+Numeric PHBar;
+Numeric PLPrice;
+Numeric PLBar;
+Numeric PHTemp;
+Numeric PLTemp;
+Numeric TopSig;
+Numeric BottomSig;
+Numeric PrevLastType;
+Numeric LastType;
+Numeric TopAlt;
+Numeric BottomAlt;
+Numeric LastTopGap;
+Numeric LastBottomGap;
+Numeric TopGap;
+Numeric BottomGap;
+Numeric LastAcceptedTop;
+Numeric LastAcceptedBottom;
+Numeric TopFinal;
+Numeric BottomFinal;
+Numeric TopOnPivotBar;
+Numeric BottomOnPivotBar;
+
+Begin
+PHPrice = 0;
+PHBar = 0;
+PLPrice = 0;
+PLBar = 0;
+
+PHTemp = Pivot(High,LeftBars + RightBars + 1,LeftBars,RightBars,1,1,PHPrice,PHBar);
+PLTemp = Pivot(Low,LeftBars + RightBars + 1,LeftBars,RightBars,1,-1,PLPrice,PLBar);
+
+TopSig = PHTemp;
+BottomSig = PLTemp;
+
+PrevLastType = IIF(CurrentBar == 0,0,Ref(LastType,1));
+LastType = PrevLastType;
+
+TopAlt = TopSig && PrevLastType <> 1;
+BottomAlt = BottomSig && PrevLastType <> -1;
+
+LastTopGap = NthCon(TopAlt,2);
+LastBottomGap = NthCon(BottomAlt,2);
+
+TopGap =
+    TopAlt
+    && IIF(IsNull(LastTopGap) == 1,1,LastTopGap >= MinGap);
+
+BottomGap =
+    BottomAlt
+    && IIF(IsNull(LastBottomGap) == 1,1,LastBottomGap >= MinGap);
+
+LastAcceptedTop = ValueWhen(TopFinal,PHPrice);
+LastAcceptedBottom = ValueWhen(BottomFinal,PLPrice);
+
+TopFinal =
+    TopGap
+    && IIF(IsNull(LastAcceptedBottom) == 1,1,
+        Abs(PHPrice - LastAcceptedBottom) / LastAcceptedBottom * 100 >= MinSwingPct);
+
+BottomFinal =
+    BottomGap
+    && IIF(IsNull(LastAcceptedTop) == 1,1,
+        Abs(LastAcceptedTop - PLPrice) / LastAcceptedTop * 100 >= MinSwingPct);
+
+If (PrevLastType == 1)
+{
+    TopFinal = 0;
+}
+
+If (PrevLastType == -1)
+{
+    BottomFinal = 0;
+}
+
+If (TopFinal)
+{
+    LastType = 1;
+}
+
+If (BottomFinal)
+{
+    LastType = -1;
+}
+
+// Move the final pivot signal back onto the real pivot bar.
+TopOnPivotBar = Ref(TopFinal,PHBar);
+BottomOnPivotBar = Ref(BottomFinal,PLBar);
+
+PlotNumeric("TopFinal",TopFinal);
+PlotNumeric("BottomFinal",BottomFinal);
+PlotNumeric("TopOnPivotBar",TopOnPivotBar);
+PlotNumeric("BottomOnPivotBar",BottomOnPivotBar);
+
+// Raw pivots in gray
+DrawShiftNumber(TopSig,PHPrice,PHPrice,PricePrecision,DarkGray,0,PHBar);
+DrawShiftNumber(BottomSig,PLPrice,PLPrice,PricePrecision,DarkGray,0,PLBar);
+
+// Final pivots in color
+DrawShiftNumber(TopFinal,PHPrice,PHPrice,PricePrecision,Red,0,PHBar);
+DrawShiftNumber(BottomFinal,PLPrice,PLPrice,PricePrecision,Blue,0,PLBar);
+
+// Rebuilt line layer:
+// connect final lows to the next final highs, and final highs to the next final lows.
+DrawLine1(BottomOnPivotBar,Low,TopOnPivotBar,High,0,Yellow,Linethick2);
+DrawLine1(TopOnPivotBar,High,BottomOnPivotBar,Low,0,Yellow,Linethick2);
+End

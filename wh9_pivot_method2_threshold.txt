@@ -1,0 +1,47 @@
+Params
+Numeric LookBack(5);
+Numeric AtrLen(14);
+Numeric RevAtr(1);
+Numeric MinGap(3);
+
+Vars
+Numeric ATR;
+Numeric TopRaw;
+Numeric BottomRaw;
+Numeric TopSig;
+Numeric BottomSig;
+Numeric PivotPrice;
+
+Begin
+// Threshold / zigzag-like approximation:
+// same-bar reversal must be large enough versus ATR.
+ATR = Ma(TrueRange,AtrLen);
+
+TopRaw =
+    High >= HV(High,LookBack)
+    && High > Ref(High,1)
+    && High - Close >= ATR * RevAtr;
+
+BottomRaw =
+    Low <= LV(Low,LookBack)
+    && Low < Ref(Low,1)
+    && Close - Low >= ATR * RevAtr;
+
+TopSig =
+    TopRaw
+    && IIF(IsNull(NthCon(TopRaw,2)) == 1, 1, NthCon(TopRaw,2) >= MinGap)
+    && IIF(IsNull(NthCon(TopRaw,2)) == 1, 1, BarsLast(BottomRaw) < NthCon(TopRaw,2));
+
+BottomSig =
+    BottomRaw
+    && IIF(IsNull(NthCon(BottomRaw,2)) == 1, 1, NthCon(BottomRaw,2) >= MinGap)
+    && IIF(IsNull(NthCon(BottomRaw,2)) == 1, 1, BarsLast(TopRaw) < NthCon(BottomRaw,2));
+
+PivotPrice = IIF(BottomSig,Low,IIF(TopSig,High,InvalidNumeric));
+
+PlotLine("PivotLine",PivotPrice,Yellow,NoDraw);
+DrawValid(PivotPrice);
+
+KText(TopSig,0,High,Red,Text(High,PricePrecision));
+KText(BottomSig,0,Low,Blue,Text(Low,PricePrecision));
+End

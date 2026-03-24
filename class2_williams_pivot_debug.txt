@@ -1,0 +1,107 @@
+Params
+Numeric LeftBars(2);
+Numeric RightBars(2);
+Numeric MinGap(2);
+Numeric MinSwingPct(1);
+
+Vars
+Numeric PHPrice;
+Numeric PHBar;
+Numeric PLPrice;
+Numeric PLBar;
+Numeric PHTemp;
+Numeric PLTemp;
+Numeric TopSig;
+Numeric BottomSig;
+Numeric LastType;
+Numeric TopAlt;
+Numeric BottomAlt;
+Numeric LastTopGap;
+Numeric LastBottomGap;
+Numeric TopGap;
+Numeric BottomGap;
+Numeric TopFinal;
+Numeric BottomFinal;
+Numeric LastAcceptedTop;
+Numeric LastAcceptedBottom;
+Numeric PivotPrice;
+
+Begin
+PHPrice = 0;
+PHBar = 0;
+PLPrice = 0;
+PLBar = 0;
+
+// Pivot() is documented in the Wenhua function manual and is the most direct
+// way to build a Williams-style left/right symmetric pivot detector.
+PHTemp = Pivot(High,LeftBars + RightBars + 1,LeftBars,RightBars,1,1,PHPrice,PHBar);
+PLTemp = Pivot(Low,LeftBars + RightBars + 1,LeftBars,RightBars,1,-1,PLPrice,PLBar);
+
+// A confirmed pivot appears on the current bar, but the actual pivot bar is PHBar/PLBar bars ago.
+TopSig = PHTemp;
+BottomSig = PLTemp;
+
+LastType = IIF(CurrentBar == 0,0,Ref(LastType,1));
+
+TopAlt = TopSig && LastType <> 1;
+BottomAlt = BottomSig && LastType <> -1;
+
+LastTopGap = NthCon(TopAlt,2);
+LastBottomGap = NthCon(BottomAlt,2);
+
+TopGap =
+    TopAlt
+    && IIF(IsNull(LastTopGap) == 1,1,LastTopGap >= MinGap);
+
+BottomGap =
+    BottomAlt
+    && IIF(IsNull(LastBottomGap) == 1,1,LastBottomGap >= MinGap);
+
+LastAcceptedTop = ValueWhen(TopFinal,PHPrice);
+LastAcceptedBottom = ValueWhen(BottomFinal,PLPrice);
+
+TopFinal =
+    TopGap
+    && IIF(IsNull(LastAcceptedBottom) == 1,1,
+        Abs(PHPrice - LastAcceptedBottom) / LastAcceptedBottom * 100 >= MinSwingPct);
+
+BottomFinal =
+    BottomGap
+    && IIF(IsNull(LastAcceptedTop) == 1,1,
+        Abs(LastAcceptedTop - PLPrice) / LastAcceptedTop * 100 >= MinSwingPct);
+
+If (TopFinal)
+{
+    LastType = 1;
+}
+
+If (BottomFinal)
+{
+    LastType = -1;
+}
+
+PivotPrice = IIF(TopFinal,PHPrice,IIF(BottomFinal,PLPrice,InvalidNumeric));
+
+// Debug outputs
+PlotNumeric("PHTemp",PHTemp);
+PlotNumeric("PLTemp",PLTemp);
+PlotNumeric("TopSig",TopSig);
+PlotNumeric("BottomSig",BottomSig);
+PlotNumeric("TopAlt",TopAlt);
+PlotNumeric("BottomAlt",BottomAlt);
+PlotNumeric("TopGap",TopGap);
+PlotNumeric("BottomGap",BottomGap);
+PlotNumeric("TopFinal",TopFinal);
+PlotNumeric("BottomFinal",BottomFinal);
+PlotNumeric("LastType",LastType);
+
+// Mark pivot prices back on the actual pivot bars.
+DrawShiftNumber(TopSig,PHPrice,PHPrice,PricePrecision,DarkGray,0,PHBar);
+DrawShiftNumber(BottomSig,PLPrice,PLPrice,PricePrecision,DarkGray,0,PLBar);
+
+DrawShiftNumber(TopFinal,PHPrice,PHPrice,PricePrecision,Red,0,PHBar);
+DrawShiftNumber(BottomFinal,PLPrice,PLPrice,PricePrecision,Blue,0,PLBar);
+
+PlotLine("PivotLine",PivotPrice,Yellow,NoDraw);
+DrawValid(PivotPrice);
+End

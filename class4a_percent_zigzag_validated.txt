@@ -1,0 +1,150 @@
+Params
+Numeric RevPct(3);
+
+Vars
+Numeric Dir;
+Numeric ActiveHigh;
+Numeric ActiveHighIndex;
+Numeric ActiveLow;
+Numeric ActiveLowIndex;
+Numeric ReversalNow;
+Numeric ConfirmHigh;
+Numeric ConfirmLow;
+Numeric PivotPrice;
+Numeric PivotOffset;
+
+Begin
+// Validated forum-style Percent ZigZag core.
+// Uses the same recursive pattern that passed the state-machine validation.
+
+Dir =
+    IIF(
+        BarPos == 1,
+        1,
+        IIF(
+            ConfirmHigh,
+            -1,
+            IIF(
+                ConfirmLow,
+                1,
+                Ref(Dir,1)
+            )
+        )
+    );
+
+// While previous direction is up, keep tracking the active high.
+// When a new upswing starts, reset the active high to current High.
+ActiveHigh =
+    IIF(
+        BarPos == 1,
+        High,
+        IIF(
+            Ref(Dir,1) == 1,
+            IIF(
+                Ref(Dir,2) <> 1,
+                High,
+                IIF(High >= Ref(ActiveHigh,1),High,Ref(ActiveHigh,1))
+            ),
+            High
+        )
+    );
+
+ActiveHighIndex =
+    IIF(
+        BarPos == 1,
+        BarPos,
+        IIF(
+            Ref(Dir,1) == 1,
+            IIF(
+                Ref(Dir,2) <> 1,
+                BarPos,
+                IIF(High >= Ref(ActiveHigh,1),BarPos,Ref(ActiveHighIndex,1))
+            ),
+            BarPos
+        )
+    );
+
+// While previous direction is down, keep tracking the active low.
+// When a new downswing starts, reset the active low to current Low.
+ActiveLow =
+    IIF(
+        BarPos == 1,
+        Low,
+        IIF(
+            Ref(Dir,1) == -1,
+            IIF(
+                Ref(Dir,2) <> -1,
+                Low,
+                IIF(Low <= Ref(ActiveLow,1),Low,Ref(ActiveLow,1))
+            ),
+            Low
+        )
+    );
+
+ActiveLowIndex =
+    IIF(
+        BarPos == 1,
+        BarPos,
+        IIF(
+            Ref(Dir,1) == -1,
+            IIF(
+                Ref(Dir,2) <> -1,
+                BarPos,
+                IIF(Low <= Ref(ActiveLow,1),BarPos,Ref(ActiveLowIndex,1))
+            ),
+            BarPos
+        )
+    );
+
+// Reversal amount of the current bar against the active extreme.
+ReversalNow =
+    IIF(
+        Ref(Dir,1) == 1,
+        IIF(ActiveHigh > 0,(ActiveHigh - Low) / ActiveHigh * 100,0),
+        IIF(
+            Ref(Dir,1) == -1,
+            IIF(ActiveLow > 0,(High - ActiveLow) / ActiveLow * 100,0),
+            0
+        )
+    );
+
+ConfirmHigh = Ref(Dir,1) == 1 && ReversalNow >= RevPct;
+ConfirmLow = Ref(Dir,1) == -1 && ReversalNow >= RevPct;
+
+PivotPrice =
+    IIF(
+        ConfirmHigh,
+        ActiveHigh,
+        IIF(
+            ConfirmLow,
+            ActiveLow,
+            InvalidNumeric
+        )
+    );
+
+PivotOffset =
+    IIF(
+        ConfirmHigh,
+        BarPos - ActiveHighIndex,
+        IIF(
+            ConfirmLow,
+            BarPos - ActiveLowIndex,
+            0
+        )
+    );
+
+DrawShiftNumber(ConfirmHigh,ActiveHigh,ActiveHigh,PricePrecision,Red,0,PivotOffset);
+DrawShiftNumber(ConfirmLow,ActiveLow,ActiveLow,PricePrecision,Blue,0,PivotOffset);
+
+PlotNumeric("Dir",Dir);
+PlotNumeric("ActiveHigh",ActiveHigh);
+PlotNumeric("ActiveHighIdx",ActiveHighIndex);
+PlotNumeric("ActiveLow",ActiveLow);
+PlotNumeric("ActiveLowIdx",ActiveLowIndex);
+PlotNumeric("ReversalNow",ReversalNow);
+PlotNumeric("ConfirmHigh",ConfirmHigh);
+PlotNumeric("ConfirmLow",ConfirmLow);
+
+PlotLine("PivotLine",PivotPrice,Yellow,NoDraw);
+DrawValid(PivotPrice);
+End

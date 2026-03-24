@@ -1,0 +1,5 @@
+Begin
+// Self-check only:
+// if this draws lines, DrawLine1 itself is fine.
+DrawLine1(Close > Open,High,Close < Open,Low,0,Yellow,Linethick2);
+End

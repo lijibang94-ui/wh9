@@ -1,0 +1,198 @@
+Params
+Numeric MinCapital(500000000);
+Numeric MaxCount(64);
+
+Vars
+StringArray VarietyArr;
+StringArray RiseLineArr;
+StringArray OpiLineArr;
+NumericArray RiseValArr;
+NumericArray OpiValArr;
+Numeric VarietyCnt;
+Numeric RankCnt;
+Numeric i;
+Numeric j;
+Numeric k;
+Numeric TmpNum;
+Numeric RunTime;
+Numeric RiseVal;
+Numeric OpiVal;
+Numeric CapVal;
+String Variety;
+String Contract;
+String TmpStr;
+String RiseLine;
+String OpiLine;
+Global_Numeric InitFlag;
+Global_Numeric DayDone;
+Global_Numeric LastRunDate;
+
+Begin
+RunTime = 0.150500;
+
+If(InitFlag == 0)
+{
+    SetStringArraySize(VarietyArr,64,"");
+    SetStringArraySize(RiseLineArr,64,"");
+    SetStringArraySize(OpiLineArr,64,"");
+    SetNumericArraySize(RiseValArr,64,0);
+    SetNumericArraySize(OpiValArr,64,0);
+
+    VarietyArr[0]  = "rb";
+    VarietyArr[1]  = "hc";
+    VarietyArr[2]  = "i";
+    VarietyArr[3]  = "j";
+    VarietyArr[4]  = "jm";
+    VarietyArr[5]  = "FG";
+    VarietyArr[6]  = "SA";
+    VarietyArr[7]  = "MA";
+    VarietyArr[8]  = "TA";
+    VarietyArr[9]  = "PF";
+    VarietyArr[10] = "pp";
+    VarietyArr[11] = "l";
+    VarietyArr[12] = "v";
+    VarietyArr[13] = "eb";
+    VarietyArr[14] = "eg";
+    VarietyArr[15] = "pg";
+    VarietyArr[16] = "bu";
+    VarietyArr[17] = "sc";
+    VarietyArr[18] = "fu";
+    VarietyArr[19] = "ru";
+    VarietyArr[20] = "nr";
+    VarietyArr[21] = "cu";
+    VarietyArr[22] = "al";
+    VarietyArr[23] = "zn";
+    VarietyArr[24] = "pb";
+    VarietyArr[25] = "ni";
+    VarietyArr[26] = "sn";
+    VarietyArr[27] = "ss";
+    VarietyArr[28] = "ao";
+    VarietyArr[29] = "au";
+    VarietyArr[30] = "ag";
+    VarietyArr[31] = "m";
+    VarietyArr[32] = "y";
+    VarietyArr[33] = "a";
+    VarietyArr[34] = "b";
+    VarietyArr[35] = "p";
+    VarietyArr[36] = "oi";
+    VarietyArr[37] = "RM";
+    VarietyArr[38] = "c";
+    VarietyArr[39] = "cs";
+    VarietyArr[40] = "SR";
+    VarietyArr[41] = "CF";
+    VarietyArr[42] = "CY";
+    VarietyArr[43] = "AP";
+    VarietyArr[44] = "CJ";
+    VarietyArr[45] = "jd";
+    VarietyArr[46] = "lh";
+    VarietyArr[47] = "PK";
+    VarietyArr[48] = "UR";
+    VarietyArr[49] = "SM";
+    VarietyArr[50] = "SF";
+    VarietyArr[51] = "SH";
+    VarietyArr[52] = "sp";
+    VarietyArr[53] = "IF";
+    VarietyArr[54] = "IH";
+    VarietyArr[55] = "IC";
+    VarietyArr[56] = "IM";
+
+    VarietyCnt = 57;
+    InitFlag = 1;
+}
+
+If(CurrentDate <> LastRunDate)
+{
+    DayDone = 0;
+}
+
+If(ServerTime >= RunTime && DayDone == 0)
+{
+    RankCnt = 0;
+
+    For i = 0 To VarietyCnt - 1
+    {
+        Variety = VarietyArr[i];
+        Contract = GetCurrentTradeContract(Variety);
+
+        If(Contract <> "")
+        {
+            ApplyDynamicQuote(Contract);
+
+            If(Contract.QuotState() == 1)
+            {
+                CapVal = Contract.Price("Capital");
+
+                If(CapVal >= MinCapital && RankCnt < MaxCount)
+                {
+                    RiseVal = Contract.Price("UpDown");
+                    OpiVal  = Contract.Price("DayDeltaOpiRatio");
+
+                    RiseLine =
+                        Contract
+                        + ",RisePct=" + Text(RiseVal)
+                        + ",DayDeltaOpi=" + Text(Contract.Price("Ratio"))
+                        + ",DayDeltaOpiPct=" + Text(OpiVal)
+                        + ",Capital=" + Text(CapVal);
+
+                    OpiLine =
+                        Contract
+                        + ",DayDeltaOpiPct=" + Text(OpiVal)
+                        + ",DayDeltaOpi=" + Text(Contract.Price("Ratio"))
+                        + ",RisePct=" + Text(RiseVal)
+                        + ",Capital=" + Text(CapVal);
+
+                    RiseValArr[RankCnt] = RiseVal;
+                    OpiValArr[RankCnt]  = OpiVal;
+                    RiseLineArr[RankCnt] = RiseLine;
+                    OpiLineArr[RankCnt]  = OpiLine;
+                    RankCnt = RankCnt + 1;
+                }
+            }
+        }
+    }
+
+    For i = 0 To RankCnt - 2
+    {
+        For j = 0 To RankCnt - 2 - i
+        {
+            If(RiseValArr[j] < RiseValArr[j + 1])
+            {
+                TmpNum = RiseValArr[j];
+                RiseValArr[j] = RiseValArr[j + 1];
+                RiseValArr[j + 1] = TmpNum;
+
+                TmpStr = RiseLineArr[j];
+                RiseLineArr[j] = RiseLineArr[j + 1];
+                RiseLineArr[j + 1] = TmpStr;
+            }
+
+            If(OpiValArr[j] < OpiValArr[j + 1])
+            {
+                TmpNum = OpiValArr[j];
+                OpiValArr[j] = OpiValArr[j + 1];
+                OpiValArr[j + 1] = TmpNum;
+
+                TmpStr = OpiLineArr[j];
+                OpiLineArr[j] = OpiLineArr[j + 1];
+                OpiLineArr[j + 1] = TmpStr;
+            }
+        }
+    }
+
+    ClearPrivateProfileString("","","MainContractRank");
+    WritePrivateProfileString("Meta","Date",Text(CurrentDate),"MainContractRank");
+    WritePrivateProfileString("Meta","Time",DateTimeToString(DateTime),"MainContractRank");
+    WritePrivateProfileString("Meta","Count",Text(RankCnt),"MainContractRank");
+    WritePrivateProfileString("Meta","MinCapital",Text(MinCapital),"MainContractRank");
+
+    For k = 0 To RankCnt - 1
+    {
+        WritePrivateProfileString("RiseRank",Text(k + 1),RiseLineArr[k],"MainContractRank");
+        WritePrivateProfileString("OpiRank",Text(k + 1),OpiLineArr[k],"MainContractRank");
+    }
+
+    Commentary("rank output done, count=" + Text(RankCnt));
+    DayDone = 1;
+    LastRunDate = CurrentDate;
+}
+End
