@@ -1,0 +1,80 @@
+// 策略名称: 震荡转趋势识别（修正唐奇安条件）
+// 适用周期: 日线（加载到文华商品指数日K线）
+//条件1、2、4测试成功
+
+Params
+    Numeric DonchianLen(20);       // 唐奇安通道周期
+    Numeric BollLen(26);            // 布林带中轨均线周期
+    Numeric SwingStrength(2);       // 波段识别强度（左右各需2根K线）
+    Numeric SwingLength(100);        // 波段识别搜索周期（适当放大）
+
+Vars
+    NumericSeries DonchianUp;       // 唐奇安上轨（含当前K线，仅用于显示）
+    NumericSeries BollMid;           // 布林带中轨
+    NumericSeries mark;               // 标记初步满足日
+    NumericSeries savedDonchian;      // 保存初步满足日的唐奇安上轨值（不含当天）
+    Numeric highPeak1, highPeak2;     // 最近两个波峰值
+    Numeric lowPeak1, lowPeak2;       // 最近两个波谷值
+    Numeric cond1, cond2, cond3;       // 条件变量
+    Numeric prevDonchian;              // 临时变量
+
+Begin
+    // 重置标记（关键修复）
+    mark = 0;
+
+    // 计算指标（包含当前K线，用于绘图）
+    DonchianUp = HHV(High, DonchianLen);
+    BollMid = MA(Close, BollLen);
+
+    // 获取最近两个波峰（高点）的值
+    highPeak1 = SwingHigh(1, High, SwingStrength, SwingLength);
+    highPeak2 = SwingHigh(2, High, SwingStrength, SwingLength);
+    // 获取最近两个波谷（低点）的值
+    lowPeak1 = SwingLow(1, Low, SwingStrength, SwingLength);
+    lowPeak2 = SwingLow(2, Low, SwingStrength, SwingLength);
+
+
+    // 条件1：收盘价 > 前20日最高价（不含今天）
+    cond1 = Close > Ref(HHV(High, DonchianLen), 1);
+
+    // 条件2：前天、昨天、今天的布林带中轨连续上涨
+    cond2 = (BollMid > Ref(BollMid, 1)) && (Ref(BollMid, 1) > Ref(BollMid, 2));
+
+    // 条件3：有两个高点数值提高，有两个低点数值提高（需确保波峰/波谷存在）
+    cond3 = (highPeak1 > highPeak2) && (lowPeak1 > lowPeak2)
+            && highPeak1 != InvalidNumeric && highPeak2 != InvalidNumeric
+            && lowPeak1 != InvalidNumeric && lowPeak2 != InvalidNumeric;
+
+    // 初步满足条件1-3时，在当前K线上方标注“初步满足”并保存当日上轨（不含当天）
+    // if (cond1 && cond2 && cond3)
+
+       // 保存的是前20日最高价（即条件1所用的突破价格）
+    savedDonchian = Ref(HHV(High, DonchianLen), 1);
+
+
+    if (cond1 && cond2 )   // 暂时注释掉cond3以测试
+    {
+        mark = 1;
+        DrawText(1, High + 100*MinPrice, "初步满足", Red);
+    }
+
+    // 后天检测：如果两天前是初步满足日，则根据条件4标注
+    if (Ref(mark, 2) == 1)
+    {
+        prevDonchian = Ref(savedDonchian, 3);
+
+        if (Close > prevDonchian)
+        {
+            DrawText(1, High + 200*MinPrice, "真突破", Magenta);
+        }
+        else
+        {
+            DrawText(1, High + 200*MinPrice, "假突破", Green);
+            }
+    }
+
+    // 可选：绘制指标线帮助观察（调试后可删除）
+   // PlotLine("唐奇安上轨(含当天)", DonchianUp, Red);
+    //PlotLine("布林中轨", BollMid, Blue);
+	
+End

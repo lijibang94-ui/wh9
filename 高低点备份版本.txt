@@ -13,7 +13,6 @@ Numeric PHTemp;
 Numeric PLTemp;
 Numeric TopSig;
 Numeric BottomSig;
-Numeric PrevLastType;
 Numeric LastType;
 Numeric TopAlt;
 Numeric BottomAlt;
@@ -21,12 +20,12 @@ Numeric LastTopGap;
 Numeric LastBottomGap;
 Numeric TopGap;
 Numeric BottomGap;
-Numeric LastAcceptedTop;
-Numeric LastAcceptedBottom;
 Numeric TopFinal;
 Numeric BottomFinal;
-Numeric TopOnPivotBar;
-Numeric BottomOnPivotBar;
+Numeric LastAcceptedTop;
+Numeric LastAcceptedBottom;
+Numeric PivotPrice;
+Numeric PivotCond;
 
 Begin
 PHPrice = 0;
@@ -40,11 +39,10 @@ PLTemp = Pivot(Low,LeftBars + RightBars + 1,LeftBars,RightBars,1,-1,PLPrice,PLBa
 TopSig = PHTemp;
 BottomSig = PLTemp;
 
-PrevLastType = IIF(CurrentBar == 0,0,Ref(LastType,1));
-LastType = PrevLastType;
+LastType = IIF(CurrentBar == 0,0,Ref(LastType,1));
 
-TopAlt = TopSig && PrevLastType <> 1;
-BottomAlt = BottomSig && PrevLastType <> -1;
+TopAlt = TopSig && LastType <> 1;
+BottomAlt = BottomSig && LastType <> -1;
 
 LastTopGap = NthCon(TopAlt,2);
 LastBottomGap = NthCon(BottomAlt,2);
@@ -70,16 +68,6 @@ BottomFinal =
     && IIF(IsNull(LastAcceptedTop) == 1,1,
         Abs(LastAcceptedTop - PLPrice) / LastAcceptedTop * 100 >= MinSwingPct);
 
-If (PrevLastType == 1)
-{
-    TopFinal = 0;
-}
-
-If (PrevLastType == -1)
-{
-    BottomFinal = 0;
-}
-
 If (TopFinal)
 {
     LastType = 1;
@@ -90,25 +78,23 @@ If (BottomFinal)
     LastType = -1;
 }
 
-// Move the final pivot signal back onto the real pivot bar.
-TopOnPivotBar = Ref(TopFinal,PHBar);
-BottomOnPivotBar = Ref(BottomFinal,PLBar);
+// 把最终高低点统一放进一个序列
+PivotPrice = IIF(TopFinal,PHPrice,IIF(BottomFinal,PLPrice,InvalidNumeric));
+PivotCond = TopFinal || BottomFinal;
 
-PlotNumeric("TopFinal",TopFinal);
-PlotNumeric("BottomFinal",BottomFinal);
-PlotNumeric("TopOnPivotBar",TopOnPivotBar);
-PlotNumeric("BottomOnPivotBar",BottomOnPivotBar);
+// Debug outputs
 
-// Raw pivots in gray
-DrawShiftNumber(TopSig,PHPrice,PHPrice,PricePrecision,DarkGray,0,PHBar);
-DrawShiftNumber(BottomSig,PLPrice,PLPrice,PricePrecision,DarkGray,0,PLBar);
 
-// Final pivots in color
+// Mark pivot prices back on the actual pivot bars.
+//DrawShiftNumber(TopSig,PHPrice,PHPrice,PricePrecision,DarkGray,0,PHBar);
+//DrawShiftNumber(BottomSig,PLPrice,PLPrice,PricePrecision,DarkGray,0,PLBar);
+
 DrawShiftNumber(TopFinal,PHPrice,PHPrice,PricePrecision,Red,0,PHBar);
-DrawShiftNumber(BottomFinal,PLPrice,PLPrice,PricePrecision,Blue,0,PLBar);
+DrawShiftNumber(BottomFinal,PLPrice,PLPrice,PricePrecision,Green,0,PLBar);
 
-// Rebuilt line layer:
-// connect final lows to the next final highs, and final highs to the next final lows.
-DrawLine1(BottomOnPivotBar,Low,TopOnPivotBar,High,0,Yellow,Linethick2);
-DrawLine1(TopOnPivotBar,High,BottomOnPivotBar,Low,0,Yellow,Linethick2);
+// 新的画线方式：直接连接最终高低点序列
+PolyLine(PivotCond,PivotPrice,Yellow,Linethick2);
+
+// 保留原来的连线方式做对比时可注释掉这一行
+// DrawValid(PivotPrice);
 End
